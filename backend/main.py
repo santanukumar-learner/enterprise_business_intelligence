@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from .db import Session, init_db, User, Tenant, Membership, Dataset, Dashboard, Report, SavedQuery, Audit
 from .security import token, decode, hash_password, verify_password
 from .analytics import parse_csv, identifier, execute_query
+from .profiling import profile_dataset
 import csv
 from .tasks import generate_report
 
@@ -34,7 +35,7 @@ async def lifespan(app):
     if recovery:
         await recovery
 
-app = FastAPI(title='Atlas Business Intelligence', version='1.0.0', lifespan=lifespan)
+app = FastAPI(title='InsightForge Business Intelligence', version='1.1.0', lifespan=lifespan)
 
 def database():
     with Session() as db:
@@ -222,6 +223,16 @@ def delete_dataset(item_id: str, member=Depends(scope), db=Depends(database)):
     db.delete(item)
     db.commit()
 
+@app.get('/api/datasets/{item_id}/profile')
+def dataset_profile(item_id: str, member=Depends(scope), db=Depends(database)):
+    item = owned(db, Dataset, item_id, member)
+    return {'dataset_id': item.id, 'created_at': item.created_at,
+            **profile_dataset(item.columns, item.rows)}
+
+@app.get('/api/datasets/{item_id}/preview')
+def dataset_preview(item_id: str, member=Depends(scope), db=Depends(database)):
+    return preview(item_id, member, db)
+
 @app.post('/api/query')
 def query(body: QueryInput, member=Depends(scope), db=Depends(database)):
     editor(member)
@@ -362,6 +373,15 @@ def add_member(body: MemberInput, member=Depends(scope), db=Depends(database)):
 @app.get('/api/audit')
 def activity(member=Depends(scope), db=Depends(database)):
     return [public(a, 'id action created_at') for a in db.scalars(select(Audit).where(Audit.tenant_id == member.tenant_id).order_by(Audit.created_at.desc()).limit(30))]
+
+# Keep existing clients working while exposing the versioned API. The same
+# endpoint and dependencies enforce authentication on both paths.
+from fastapi.routing import APIRoute
+for route in list(app.routes):
+    if isinstance(route, APIRoute) and route.path.startswith('/api/'):
+        app.add_api_route('/api/v1/' + route.path[5:], route.endpoint,
+                          methods=route.methods, status_code=route.status_code,
+                          name='v1_' + route.name, response_model=route.response_model)
 
 STATIC = Path(__file__).resolve().parent.parent / 'frontend' / 'dist'
 if STATIC.exists():

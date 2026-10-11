@@ -47,6 +47,21 @@ def test_tenant_isolation_and_sql(client):
     sql = 'WITH RECURSIVE t(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM t) SELECT SUM(x) FROM t'
     assert client.post('/api/query',headers=a,json={'sql':sql}).status_code == 422
 
+def test_versioned_api_and_profile_isolation(client):
+    a, b = account(client, 'ProfileOwner'), account(client, 'ProfileOther')
+    dataset = upload(client, a, csv=b'region,revenue,date\nEast,100,2026-01-01\nEast,100,2026-01-01\nWest,,2026-02-01\n').json()
+    path = f'/api/v1/datasets/{dataset["id"]}/profile'
+    assert client.get(path).status_code == 401
+    assert client.get(path, headers=b).status_code == 404
+    profile = client.get(path, headers=a).json()
+    assert profile['duplicate_rows'] == 1
+    assert profile['missing_cells'] == 1
+    assert profile['quality_score'] == 59.26
+    assert profile['columns'][1]['numeric']['mean'] == 100
+    assert profile['columns'][2]['date_range']['max'] == '2026-02-01'
+    assert client.get(f'/api/v1/datasets/{dataset["id"]}/preview', headers=a).json()['row_count'] == 3
+    assert client.post('/api/v1/query', headers=a, json={'sql': 'SELECT SUM(revenue) FROM sales'}).json()['rows'] == [[200]]
+
 def test_viewer_rbac(client):
     owner, viewer = account(client,'Owner'), account(client,'Viewer')
     assert client.post('/api/members',headers=owner,json={'email':'viewer@example.test','role':'viewer'}).status_code == 200

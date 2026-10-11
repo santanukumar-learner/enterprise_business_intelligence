@@ -1,6 +1,14 @@
-# Atlas Business Intelligence
+# InsightForge — Multi-Tenant Business Intelligence
 
 A Python-first, multi-tenant analytics application with a React interface. Companies upload CSV data, run read-only SQL, build dashboards, generate CSV reports, and manage workspace roles.
+
+Built by **Santanu Kumar Adhikari**. The current app is a working portfolio foundation;
+the expanded enterprise requirements and remaining work are tracked in
+[the implementation status](docs/insightforge-development.md).
+
+The API is available under `/api/v1`, with `/api` retained for compatibility.
+Open a dataset preview in **Data sources** to view its health profile, including
+missing cells, duplicate rows, numeric outliers and a defined quality score.
 
 ## Start locally on Windows
 
