@@ -25,7 +25,7 @@ For an already prepared checkout:
 ## Product workflows
 
 1. Create an account and company workspace, or open the local demo.
-2. In **Data sources**, upload a UTF-8 CSV. Table and column names are normalized. Limits: 10 MB, 20,000 rows, 50 columns, and 20 datasets per workspace.
+2. In **Data sources**, upload a UTF-8 CSV. Table and column names are normalized. For example, `sample-sales.csv` becomes the SQL table `sample_sales`. After upload, Atlas opens the SQL workspace with a correctly quoted preview query for that table. Limits: 10 MB, 20,000 rows, 50 columns, and 20 datasets per workspace.
 3. In **SQL workspace**, select a dataset, run a SELECT query, and save it. Use Ctrl+Enter to run.
 4. Create a dashboard and add widgets. Metrics use the first returned value. Bar and line charts use the first column as labels and the second as numeric values. Tables display query results.
 5. Generate a report from SQL, check its status in **Reports**, and download the completed CSV.
@@ -114,12 +114,13 @@ cd frontend
 npm.cmd run build
 ```
 
-Seven API test scenarios exercise tenant isolation, role restrictions, SQL writes/schema/attachment denial, recursive query timeout, dashboard queries, report generation/download isolation, saved-query isolation, CSV validation, formula escaping, authentication, tenant-scoped cache behavior, and result bounds. Tests use temporary SQLite storage and a cache double; they do not claim a live Redis integration check. The React production build and local HTTP health/static responses have been checked.
+Nine API test scenarios exercise tenant isolation, role restrictions, SQL writes/schema/attachment denial, recursive query timeout, dashboard queries, report generation/download isolation, saved-query isolation, CSV validation, formula escaping, authentication, tenant-scoped cache behavior, result bounds, inferred CSV table names, numeric overflow, and demo availability. Non-finite CSV values are kept as text; non-finite SQL results return null instead of crashing JSON serialization. Tests use temporary SQLite storage and a cache double. The React production build and local HTTP health/static responses have been checked.
 
 The local Docker stack has also been verified with live PostgreSQL, a Redis cache hit, and a Celery-generated CSV report. API health reports `postgresql` and `celery`, and the frontend returns HTTP 200. Re-run the integration check from PowerShell with:
 
 ```powershell
 Get-Content -Raw scripts/smoke-stack.py | docker compose exec -T api python -
+Get-Content -Raw scripts/check-upload-query.py | docker compose exec -T api python -
 ```
 
 The check creates and removes its own temporary workspace/report. Hosted deployment remains unverified. Browser visual QA was unavailable because no browser surface was connected.

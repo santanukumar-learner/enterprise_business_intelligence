@@ -162,6 +162,10 @@ def login(body: Credentials, db=Depends(database)):
         raise HTTPException(401, 'Email or password is incorrect.')
     return {'access_token': token(user.id)}
 
+@app.get('/api/auth/options')
+def auth_options(db=Depends(database)):
+    return {'demo_available': db.scalar(select(User.id).where(User.email == 'demo@atlas.local')) is not None}
+
 @app.get('/api/me')
 def me(user=Depends(current_user), db=Depends(database)):
     memberships = db.execute(select(Membership, Tenant).join(Tenant, Tenant.id == Membership.tenant_id).where(Membership.user_id == user.id)).all()
@@ -249,7 +253,15 @@ def dashboards(member=Depends(scope), db=Depends(database)):
 def validate_widgets(body, db, member):
     for widget in body.widgets:
         try:
-            execute_query(db, member.tenant_id, widget.sql)
+            result = execute_query(db, member.tenant_id, widget.sql)
+            if widget.type in ('bar', 'line'):
+                if len(result['columns']) < 2:
+                    raise ValueError('Charts need a label column followed by a numeric column.')
+                if any(row[1] is not None and not isinstance(row[1], (int, float)) for row in result['rows']):
+                    raise ValueError('The second chart column must be numeric. Use an aggregate such as SUM or COUNT, or choose a table widget.')
+            elif widget.type == 'metric':
+                if any(row[0] is not None and not isinstance(row[0], (int, float)) for row in result['rows']):
+                    raise ValueError('Metrics need a numeric first column. Use SUM, COUNT, or another numeric expression.')
         except ValueError as exc:
             raise HTTPException(422, f'{widget.title}: {exc}')
 

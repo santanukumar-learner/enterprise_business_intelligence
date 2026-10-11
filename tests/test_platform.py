@@ -127,3 +127,20 @@ def test_result_limits_and_nonfinite_values(client):
     r = client.post('/api/query',headers=h,json={'sql':'SELECT * FROM sales'})
     assert len(r.json()['rows']) == 1000 and r.json()['truncated']
     assert client.post('/api/query',headers=h,json={'sql':'SELECT 1e999 AS too_large'}).json()['rows'] == [[None]]
+
+def test_csv_nonfinite_and_filename_query(client):
+    h = account(client,'CsvEdges')
+    response = client.post('/api/datasets', headers=h, files={'file': ('sample-sales.csv', b'region,revenue\nEast,100\nWest,200\n', 'text/csv')})
+    assert response.status_code == 201
+    table = response.json()['table_name']
+    assert table == 'sample_sales'
+    assert client.post('/api/query',headers=h,json={'sql':f'SELECT SUM(revenue) FROM "{table}"'}).json()['rows'] == [[300]]
+    response = upload(client,h,name='special',csv=b'label,value\nA,NaN\nB,Infinity\n')
+    assert response.status_code == 201
+    assert response.json()['columns'][1]['type'] == 'TEXT'
+    result = client.post('/api/query',headers=h,json={'sql':'SELECT * FROM special'})
+    assert result.status_code == 200 and result.json()['rows'] == [['A','NaN'],['B','Infinity']]
+    assert upload(client,h,name='malformed',csv=b'label,value\nA,"unclosed\n').status_code == 422
+
+def test_demo_not_advertised_when_unseeded(client):
+    assert client.get('/api/auth/options').json() == {'demo_available': False}

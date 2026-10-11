@@ -1,4 +1,3 @@
-"""Seed a local demo only. Never runs automatically on deployed environments."""
 import csv
 import io
 import random

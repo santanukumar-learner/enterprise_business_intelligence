@@ -1,4 +1,3 @@
-"""Bounded read-only SQL over a tenant-only snapshot. No database credentials exposed."""
 import csv
 import hashlib
 import io
@@ -61,7 +60,7 @@ def execute_query(db, tenant_id, sql, use_cache=True):
         raise ValueError('Enter a SELECT query under 10,000 characters.')
     datasets = list(db.scalars(select(Dataset).where(Dataset.tenant_id == tenant_id)))
     fingerprint = [(d.id, d.created_at) for d in datasets]
-    cache_key = 'query:' + hashlib.sha256(json.dumps([tenant_id, fingerprint, sql]).encode()).hexdigest()
+    cache_key = 'query:v2:' + hashlib.sha256(json.dumps([tenant_id, fingerprint, sql]).encode()).hexdigest()
     cache = None
     if os.getenv('REDIS_URL') and use_cache:
         import redis
