@@ -1,0 +1,12 @@
+.venv/
+.tools/
+node_modules/
+frontend/dist/
+data/
+*.db
+*.pyc
+__pycache__/
+.pytest_cache/
+.env
+.openai/
+artifacts/

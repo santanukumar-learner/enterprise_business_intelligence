@@ -1,0 +1,17 @@
+# Free web hosting; connect a Neon Free PostgreSQL database when prompted.
+# No paid workers, paid disks, or expiring Render PostgreSQL resources.
+services:
+  - type: web
+    name: atlas-business-intelligence
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+# Free profile uses local background report jobs. Durable Celery workers and
+# Redis are available through compose.yaml when suitable hosting is available.
