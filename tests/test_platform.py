@@ -144,3 +144,32 @@ def test_csv_nonfinite_and_filename_query(client):
 
 def test_demo_not_advertised_when_unseeded(client):
     assert client.get('/api/auth/options').json() == {'demo_available': False}
+
+def test_dashboard_widget_shapes_and_edit(client):
+    h = account(client,'DashboardShapes')
+    upload(client,h)
+    for widget in [
+        {'title':'Bad bar','type':'bar','sql':'SELECT region, region FROM sales'},
+        {'title':'Bad line','type':'line','sql':'SELECT revenue FROM sales'},
+        {'title':'Bad metric','type':'metric','sql':'SELECT region FROM sales'},
+    ]:
+        response = client.post('/api/dashboards',headers=h,json={'name':'Invalid','widgets':[widget]})
+        assert response.status_code == 422 and widget['title'] in response.json()['detail']
+    widgets = [
+        {'title':'Total','type':'metric','sql':'SELECT SUM(revenue) FROM sales'},
+        {'title':'By region','type':'bar','sql':'SELECT region, SUM(revenue) FROM sales GROUP BY region'},
+        {'title':'Trend','type':'line','sql':'SELECT region, revenue FROM sales'},
+        {'title':'Rows','type':'table','sql':'SELECT * FROM sales'},
+    ]
+    response = client.post('/api/dashboards',headers=h,json={'name':'All widgets','widgets':widgets})
+    assert response.status_code == 201
+    did = response.json()['id']
+    data = client.get(f'/api/dashboards/{did}/data',headers=h).json()
+    assert len(data) == 4 and all('result' in w for w in data)
+    assert data[0]['result']['rows'] == [[300]]
+    widgets[0]['sql'] = 'SELECT COUNT(*) FROM sales'
+    assert client.put(f'/api/dashboards/{did}',headers=h,json={'name':'Updated','widgets':widgets}).status_code == 200
+    assert client.get(f'/api/dashboards/{did}/data',headers=h).json()[0]['result']['rows'] == [[2]]
+    dataset = client.get('/api/datasets',headers=h).json()[0]
+    client.delete('/api/datasets/'+dataset['id'],headers=h)
+    assert all('error' in w for w in client.get(f'/api/dashboards/{did}/data',headers=h).json())

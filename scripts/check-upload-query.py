@@ -39,9 +39,24 @@ try:
     assert client.post('/api/query', json={'sql': 'SELECT * FROM special'}).json()['rows'] == [['A', 'NaN'], ['B', 'Infinity']]
     malformed = client.post('/api/datasets', data={'name': 'malformed'}, files={'file': ('malformed.csv', b'label,value\nA,"unclosed\n', 'text/csv')})
     assert malformed.status_code == 422
-    dashboard = client.post('/api/dashboards', json={'name': 'Verification', 'widgets': [{'title': 'Revenue', 'type': 'metric', 'sql': sql}]})
+    widgets = [
+        {'title': 'Revenue', 'type': 'metric', 'sql': sql},
+        {'title': 'By region', 'type': 'bar', 'sql': f'SELECT region, SUM(revenue) FROM "{table}" GROUP BY region'},
+        {'title': 'By month', 'type': 'line', 'sql': f'SELECT month, SUM(revenue) FROM "{table}" GROUP BY month ORDER BY month'},
+        {'title': 'Records', 'type': 'table', 'sql': f'SELECT * FROM "{table}"'},
+    ]
+    dashboard = client.post('/api/dashboards', json={'name': 'Verification', 'widgets': widgets})
     dashboard.raise_for_status()
-    assert client.get(f'/api/dashboards/{dashboard.json()["id"]}/data').json()[0]['result']['rows'] == [[300]]
+    dashboard_path = f'/api/dashboards/{dashboard.json()["id"]}'
+    dashboard_data = client.get(dashboard_path+'/data').json()
+    assert len(dashboard_data) == 4 and all('result' in w for w in dashboard_data)
+    assert dashboard_data[0]['result']['rows'] == [[300]]
+    invalid = client.post('/api/dashboards', json={'name': 'Invalid', 'widgets': [{'title': 'Bad chart', 'type': 'bar', 'sql': f'SELECT month, region FROM "{table}"'}]})
+    assert invalid.status_code == 422 and 'numeric' in invalid.json()['detail']
+    widgets[0]['sql'] = f'SELECT COUNT(*) FROM "{table}"'
+    edited = client.put(dashboard_path, json={'name': 'Updated verification', 'widgets': widgets})
+    edited.raise_for_status()
+    assert client.get(dashboard_path+'/data').json()[0]['result']['rows'] == [[2]]
     report = client.post('/api/reports', json={'name': 'Verification', 'sql': sql})
     report.raise_for_status()
     deadline = time.monotonic() + 15

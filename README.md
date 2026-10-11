@@ -27,7 +27,7 @@ For an already prepared checkout:
 1. Create an account and company workspace, or open the local demo.
 2. In **Data sources**, upload a UTF-8 CSV. Table and column names are normalized. For example, `sample-sales.csv` becomes the SQL table `sample_sales`. After upload, Atlas opens the SQL workspace with a correctly quoted preview query for that table. Limits: 10 MB, 20,000 rows, 50 columns, and 20 datasets per workspace.
 3. In **SQL workspace**, select a dataset, run a SELECT query, and save it. Use Ctrl+Enter to run.
-4. Create a dashboard and add widgets. Metrics use the first returned value. Bar and line charts use the first column as labels and the second as numeric values. Tables display query results.
+4. Create a dashboard and choose a starting dataset. Atlas suggests record-count and sum metrics, a grouped chart when appropriate, and a preview table. Saving opens that dashboard. Widgets remain editable. Metrics require a numeric first value; bar and line charts require a label column followed by a numeric column. Invalid widgets show specific errors. Tables display query results.
 5. Generate a report from SQL, check its status in **Reports**, and download the completed CSV.
 6. Owners/admins can add existing account holders to the workspace and assign admin, analyst, or viewer access. The workspace switcher supports membership in multiple companies.
 
@@ -114,7 +114,7 @@ cd frontend
 npm.cmd run build
 ```
 
-Nine API test scenarios exercise tenant isolation, role restrictions, SQL writes/schema/attachment denial, recursive query timeout, dashboard queries, report generation/download isolation, saved-query isolation, CSV validation, formula escaping, authentication, tenant-scoped cache behavior, result bounds, inferred CSV table names, numeric overflow, and demo availability. Non-finite CSV values are kept as text; non-finite SQL results return null instead of crashing JSON serialization. Tests use temporary SQLite storage and a cache double. The React production build and local HTTP health/static responses have been checked.
+Ten API test scenarios exercise tenant isolation, role restrictions, SQL writes/schema/attachment denial, recursive query timeout, dashboard queries, report generation/download isolation, saved-query isolation, CSV validation, formula escaping, authentication, tenant-scoped cache behavior, result bounds, inferred CSV table names, numeric overflow, and demo availability. Non-finite CSV values are kept as text; non-finite SQL results return null instead of crashing JSON serialization. Tests use temporary SQLite storage and a cache double. The React production build and local HTTP health/static responses have been checked.
 
 The local Docker stack has also been verified with live PostgreSQL, a Redis cache hit, and a Celery-generated CSV report. API health reports `postgresql` and `celery`, and the frontend returns HTTP 200. Re-run the integration check from PowerShell with:
 

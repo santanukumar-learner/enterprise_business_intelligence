@@ -250,18 +250,21 @@ def save_query(body: SavedInput, member=Depends(scope), db=Depends(database)):
 def dashboards(member=Depends(scope), db=Depends(database)):
     return [public(d, 'id name description widgets created_at') for d in db.scalars(select(Dashboard).where(Dashboard.tenant_id == member.tenant_id).order_by(Dashboard.created_at))]
 
+def validate_widget_result(widget_type, result):
+    if widget_type in ('bar', 'line'):
+        if len(result['columns']) < 2:
+            raise ValueError('Charts need a label column followed by a numeric column.')
+        if any(row[1] is not None and not isinstance(row[1], (int, float)) for row in result['rows']):
+            raise ValueError('The second chart column must be numeric. Use an aggregate such as SUM or COUNT, or choose a table widget.')
+    elif widget_type == 'metric':
+        if any(row[0] is not None and not isinstance(row[0], (int, float)) for row in result['rows']):
+            raise ValueError('Metrics need a numeric first column. Use SUM, COUNT, or another numeric expression.')
+
 def validate_widgets(body, db, member):
     for widget in body.widgets:
         try:
             result = execute_query(db, member.tenant_id, widget.sql)
-            if widget.type in ('bar', 'line'):
-                if len(result['columns']) < 2:
-                    raise ValueError('Charts need a label column followed by a numeric column.')
-                if any(row[1] is not None and not isinstance(row[1], (int, float)) for row in result['rows']):
-                    raise ValueError('The second chart column must be numeric. Use an aggregate such as SUM or COUNT, or choose a table widget.')
-            elif widget.type == 'metric':
-                if any(row[0] is not None and not isinstance(row[0], (int, float)) for row in result['rows']):
-                    raise ValueError('Metrics need a numeric first column. Use SUM, COUNT, or another numeric expression.')
+            validate_widget_result(widget.type, result)
         except ValueError as exc:
             raise HTTPException(422, f'{widget.title}: {exc}')
 
@@ -292,7 +295,9 @@ def dashboard_data(item_id: str, member=Depends(scope), db=Depends(database)):
     widgets = []
     for widget in item.widgets:
         try:
-            widgets.append({**widget, 'result': execute_query(db, member.tenant_id, widget['sql'])})
+            result = execute_query(db, member.tenant_id, widget['sql'])
+            validate_widget_result(widget['type'], result)
+            widgets.append({**widget, 'result': result})
         except ValueError as exc:
             widgets.append({**widget, 'error': str(exc)})
     return widgets
